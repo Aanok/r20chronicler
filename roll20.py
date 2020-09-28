@@ -1,0 +1,152 @@
+import aiohttp
+import asyncio
+from http import cookies
+from os import path, remove, mkdir, rmdir
+from re import compile as re_compile
+
+from parsers import ChatParser, ParseError
+from progress import progress
+
+
+session = None
+pages = None
+done = None 
+
+
+class HTTPError(Exception):
+    _messages = {
+        302: 'The login session has timed out. Please restart the program.',
+        403: 'You are not allowed to access this chatlog. Are you a member of the campaign?'
+        }
+        
+    def __init__(self, status):
+        self.status = status
+        self.message = ''.join([
+            'HTTP error ',
+            str(status),
+            ': ' + HTTPError._messages[status] if status in HTTPError._messages else ''
+            ])
+
+
+def _load_rack_session(session, response):
+    if not 'set-cookie' in response.headers:
+        return
+
+    for cookie_header in response.headers.getall('set-cookie'):
+        if not cookie_header.startswith('rack.session'):
+            continue
+        # correct idiocy of Rack not respecting RFC 7231, section 7.1.1.2: Date
+        set_rack_cookie = cookie_header.replace('-0000','GMT')
+        c = cookies.SimpleCookie()
+        c.load(set_rack_cookie)
+        session.cookie_jar.update_cookies(c)
+    assert 'rack.session' in session.cookie_jar._cookies['roll20.net']
+
+
+async def login(email, password):
+    global session
+    response = await session.post(
+        'https://app.roll20.net/sessions/create',
+        data={'email': email, 'password': password},
+        allow_redirects=False
+        )
+    _load_rack_session(session, response)
+    session.cookie_jar.save('cookiejar')
+    response.close()
+
+    return session
+
+
+async def new_session(email, password):
+    global session
+    if session and not session.closed: session.close()
+    session = aiohttp.ClientSession()
+
+    try:
+        session.cookie_jar.load('cookiejar')
+        response = await session.get(
+            'https://app.roll20.net/account/',
+            allow_redirects=False
+            )
+        response.close()
+        _load_rack_session(session, response)
+        if response.status != 200:
+            await login(email, password) 
+    except FileNotFoundError:
+        await login(email,password)
+
+
+async def close_session():
+    await session.close()
+
+
+def delete_cookiejar():
+    remove('cookiejar')
+
+
+async def _dump_page(campaign_id, filename, pageno, playerid):
+    global session, pages, done
+    response = await session.get(
+            'https://app.roll20.net/campaigns/chatarchive/{}/?p={}'.format(campaign_id, pageno),
+            allow_redirects=False
+            )
+    async with response:
+        if response.status != 200:
+            raise HTTPError(response.status)
+        parser = ChatParser(filename, playerid)
+        async for chunk in response.content.iter_chunked(64 * 1024):
+            encoding = response.charset or 'utf-8'
+            parser.process(chunk.decode(encoding))
+        parser.finalize()
+    done = done + 1
+    progress(done, pages)
+
+
+async def dump_chatlog(campaign_id, filepath):
+    global session, pages, done
+    is_gm = False
+    response = await session.get(
+            'https://app.roll20.net/campaigns/chatarchive/{}'.format(campaign_id),
+            allow_redirects=False
+            )
+    async with response:
+        if response.status != 200:
+            raise HTTPError(response.status)
+        re_pages = re_compile(b'Page 1/(\d+)</div>')
+        re_playerid = re_compile(b'Object\.defineProperty\(window, "currentPlayer", {value: {id: "([^"]+)"}, writable: false }\);')
+        async for line in response.content:
+            # NB this does a bunch of pointless work after it finds what
+            # it's looking for already but i cba
+            match_pages = re_pages.search(line)
+            if match_pages:
+                pages = int(match_pages.group(1))
+            match_playerid = re_playerid.search(line)
+            if match_playerid:
+                playerid = match_playerid.group(1).decode(response.charset or 'utf-8')
+                break # we know it's the last we find of the three
+
+    if not pages: raise ParseError('Page count not found in request body.')
+    if not playerid: raise ParseError('playerid not found in request body.')
+
+    tmp_dir = '{}_tmp'.format(filepath)
+    try:
+        mkdir(tmp_dir)
+    except:
+        pass
+    tasks = []
+    tmp_filepaths = []
+    for page in range(pages, 0, -1):
+        tmp_filepath = '{}/{}'.format(tmp_dir, page)
+        tmp_filepaths.append(tmp_filepath)
+        tasks.append(_dump_page(campaign_id, tmp_filepath, page, playerid))
+    done = 0
+    progress(done, pages)
+    await asyncio.gather(*tasks)
+    print('')
+    with open(filepath, 'w') as output_file:
+        for i in range(pages):
+            with open(tmp_filepaths[i]) as input_file:
+                for line in input_file:
+                    output_file.write(line)
+            remove(tmp_filepaths[i])
+    rmdir(tmp_dir)

@@ -1,0 +1,20 @@
+; Fill the [user] section with your roll20 credentials.
+; Don't use quotes or delimiters like "'my@nice.email'", just write down values after the "=".
+; The password will remain in plaintext.
+;
+; Add campaigns to download with new sections at the bottom like so: 
+; [campaign name #1]
+; id = 123456
+;
+; [campaign name #2]
+; id = 66642666
+;
+; The "campaign name" section header will determine the file name for the chatlog dump, so don't put crazy characters in there.
+; You can figure out the id of your campaign by its URL: https://app.roll20.net/campaigns/details/66642/campaign-name
+; It's the number between "...details/" and "/campaign-name".
+;
+; If you don't want to download every section, comment out the ones you want to skip by putting ";" at the start of their lines.
+
+[user]
+email = roll20@email.here
+password = your_password
