@@ -104,26 +104,38 @@ async def _dump_page(campaign_id, filename, pageno, playerid):
 
 async def dump_chatlog(campaign_id, filepath):
     global session, pages, done
-    is_gm = False
     response = await session.get(
             'https://app.roll20.net/campaigns/chatarchive/{}'.format(campaign_id),
             allow_redirects=False
             )
+
+    # badly and lazily parse first page for page count and playerid
     async with response:
         if response.status != 200:
             raise HTTPError(response.status)
         re_pages = re_compile(b'Page 1/(\d+)</div>')
         re_playerid = re_compile(b'Object\.defineProperty\(window, "currentPlayer", {value: {id: "([^"]+)"}, writable: false }\);')
-        async for line in response.content:
-            # NB this does a bunch of pointless work after it finds what
-            # it's looking for already but i cba
-            match_pages = re_pages.search(line)
-            if match_pages:
-                pages = int(match_pages.group(1))
-            match_playerid = re_playerid.search(line)
-            if match_playerid:
-                playerid = match_playerid.group(1).decode(response.charset or 'utf-8')
-                break # we know it's the last we find of the three
+        buf = b''
+        # can't use readline because the line with msgdata is too long
+        async for chunk in response.content.iter_any():
+            start = 0
+            buf = b''.join([buf, chunk])
+            while True:
+                end = buf.find(b'\n', start)
+                if end == -1:
+                    buf = buf[start:]
+                    break
+                line = buf[start:end]
+                # NB this does a bunch of pointless work after it finds what
+                # it's looking for already but i cba
+                match_pages = re_pages.search(line)
+                if match_pages:
+                    pages = int(match_pages.group(1))
+                match_playerid = re_playerid.search(line)
+                if match_playerid:
+                    playerid = match_playerid.group(1).decode(response.charset or 'utf-8')
+                start = end + 1
+        del buf
 
     if not pages: raise ParseError('Page count not found in request body.')
     if not playerid: raise ParseError('playerid not found in request body.')
@@ -142,7 +154,8 @@ async def dump_chatlog(campaign_id, filepath):
     done = 0
     progress(done, pages)
     await asyncio.gather(*tasks)
-    print('')
+    print('') # for the sake of the progress bar
+
     with open(filepath, 'w') as output_file:
         for i in range(pages):
             with open(tmp_filepaths[i]) as input_file:
