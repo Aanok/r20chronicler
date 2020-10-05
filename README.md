@@ -10,7 +10,7 @@ To otherwise run the script directly:
 - Satisfy the dependencies as listed below.
   - On Windows, you'll want to put `yajl.dll` into `C:\Windows\System32`. If it doesn't work you'll have to compile it locally.
 - Rename `config.ini.template` to `config.ini` and follow the instructions you'll find inside.
-- Run `chronicler.py` via the Python interprenter.
+- Run `chronicler.py` via the Python interpreter.
 
 If you run into Unicode problems (e.g. a `UnicodeEncodeError` exception, or an odd error in `parse.py` from jsonstreamer) you'll want to use a version 3.7+ runtime with the `-X utf8` argument. Or fix your Locale.
 
