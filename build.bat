@@ -1,9 +1,17 @@
-python -X utf -m nuitka ^
+@rem Nuitka v0.6.8+ seems to not release the resources for asyncio Tasks after they've completed.
+@rem Make sure to use v0.6.7 until the bug is fixed.
+@rem See https://github.com/Nuitka/Nuitka/issues/748
+
+@set NUITKA_CCACHE_BINARY=C:\ccache\ccache.exe
+
+python -X utf8 -m nuitka ^
     --follow-imports ^
     --standalone ^
     --windows-dependency-tool=pefile ^
     --experimental=use_pefile_recurse ^
     --python-flag=no_site ^
+    --show-progress ^
+    --show-scons ^
     chronicler.py
 
 copy config.ini.template chronicler.dist\config.ini
