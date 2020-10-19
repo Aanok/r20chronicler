@@ -21,7 +21,7 @@ class LoginError(Exception):
 class HTTPError(Exception):
     _messages = {
         302: 'The login session has timed out. Please restart the program.',
-        403: 'You are not allowed to access this chatlog. Are you a member of the campaign?'
+        403: 'You are not allowed to access this chatlog. Is the ID correct? Are you a member of the campaign?'
         }
         
     def __init__(self, status):
