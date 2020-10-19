@@ -14,8 +14,8 @@ import time
 outputdir = 'output'
 
 async def main():
-    config.load()
     try:
+        config.load()
         await roll20.new_session(
             config.options['user']['email'],
             config.options['user']['password']
@@ -53,6 +53,6 @@ async def main():
 
 
 if __name__ == '__main__':
-    getLogger('asyncio').setLevel(INFO)
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
+        getLogger('asyncio').setLevel(INFO)
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(main())
