@@ -13,6 +13,11 @@ pages = None
 done = None 
 
 
+# oh how i'd love for this exception to fall under HTTPError with a 401
+class LoginError(Exception):
+    message = 'Login failed. Please double check your credentials in config.ini.'
+
+
 class HTTPError(Exception):
     _messages = {
         302: 'The login session has timed out. Please restart the program.',
@@ -29,8 +34,7 @@ class HTTPError(Exception):
 
 
 def _load_rack_session(session, response):
-    if not 'set-cookie' in response.headers:
-        return
+    assert('set-cookie' in response.headers)
 
     for cookie_header in response.headers.getall('set-cookie'):
         if not cookie_header.startswith('rack.session'):
@@ -40,7 +44,8 @@ def _load_rack_session(session, response):
         c = cookies.SimpleCookie()
         c.load(set_rack_cookie)
         session.cookie_jar.update_cookies(c)
-    assert 'rack.session' in session.cookie_jar._cookies['roll20.net']
+
+    assert('rack.session' in session.cookie_jar._cookies['roll20.net'])
 
 
 async def login(email, password):
@@ -50,6 +55,12 @@ async def login(email, password):
         data={'email': email, 'password': password},
         allow_redirects=False
         )
+
+    # check for successful login. believe it or not this is the only thing that
+    # changes in the response if the login failed. i'm speechless.
+    if response.headers['Location'] == 'https://app.roll20.net/sessions/new':
+        raise LoginError
+
     _load_rack_session(session, response)
     session.cookie_jar.save('cookiejar')
     response.close()

@@ -40,6 +40,8 @@ async def main():
             roll20.delete_cookiejar()
         else:
             stderr.write('ERROR: {}\n'.format(e.message))
+    except roll20.LoginError as e:
+        stderr.write('ERROR: {}\n'.format(e.message))
     except:
         stderr.write('ERROR\n')
         e = exc_info()
