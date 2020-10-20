@@ -1,4 +1,4 @@
-; Fill the [user] section with your roll20 credentials.
+; Without altering the "[user]" line, fill in your Roll20 credentials below.
 ; Don't use quotes or delimiters like "'my@nice.email'", just write down values after the "=".
 ; The password will remain in plaintext.
 ;
@@ -13,7 +13,7 @@
 ; You can figure out the id of your campaign by its URL: https://app.roll20.net/campaigns/details/66642/campaign-name
 ; It's the number between "...details/" and "/campaign-name".
 ;
-; If you don't want to download every section, comment out the ones you want to skip by putting ";" at the start of their lines.
+; If you don't want to download every chatlog, comment out both the "[campaign name]" and "id" lines of the ones you want to skip by putting a ";" at the start of each, like you see in the two examples above.
 
 [user]
 email = roll20@email.here
