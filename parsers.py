@@ -59,9 +59,10 @@ class JsonSaxParser:
     # TODO: better roll parsing to show details of single dice
     # TODO: inlinerolls (e.g. macros and calculator-like expressions)
 
-    def __init__(self, filepath, playerid):
+    def __init__(self, filepath, playerid, is_gm):
         self._filepath = filepath 
         self._playerid = playerid
+        self._is_gm = is_gm
         self._streamer = JSONStreamer()
         self._streamer.auto_listen(self)
         self._state = SaxState.START
@@ -122,19 +123,23 @@ class JsonSaxParser:
                     )
             elif self._type == PostType.GMROLLRESULT:
                 # same deal...
-                roll = loads(self._content)
-                post = ''.join(
-                        [
-                            self._who,
-                            ' (to GM): ',
-                            self._origRoll,
-                            ' = ',
-                            str(roll['total']),
-                            '\n'
-                        ]
-                    )
+                # privacy of GM rolls must be enforced client-side
+                if self._post_playerid == self._playerid or self._is_gm:
+                    roll = loads(self._content)
+                    post = ''.join(
+                            [
+                                self._who,
+                                ' (to GM): ',
+                                self._origRoll,
+                                ' = ',
+                                str(roll['total']),
+                                '\n'
+                            ]
+                        )
+                else:
+                    self._type = PostType.IGNORE
             elif self._type == PostType.WHISPER:
-                # whispers must be filtered client-side
+                # privacy of whispers must be enforced client-side
                 # note: the target can be a comma-separated list
                 # why not a JSON array? belzeebub's will again for sure
                 if self._post_playerid == self._playerid \
@@ -245,11 +250,11 @@ class ChatParser:
     
     WHITESPACE = ' \n\r\t'
 
-    def __init__(self, filepath, playerid):
+    def __init__(self, filepath, playerid, is_gm):
         self._parser_state = ChatParserState.LOOKING
         self._current_lexeme = []
         self._input_tail = ''
-        self._json_parser = JsonSaxParser(filepath, playerid)
+        self._json_parser = JsonSaxParser(filepath, playerid, is_gm)
 
 
     def _get_lexemes(self, chunk):
