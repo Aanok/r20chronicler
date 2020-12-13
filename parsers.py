@@ -248,9 +248,12 @@ class ChatParser:
 <<<<<<< HEAD
     def __init__(self, filepath, playerid, is_gm):
         self._filepath = filepath
+<<<<<<< HEAD
 =======
     def __init__(self, filepath, playerid):
 >>>>>>> parent of b4a782c (gmrolls)
+=======
+>>>>>>> 5dadb209a893a9a6595460a1783789b3e4d2aa4c
         self._parser_state = ChatParserState.LOOKING
         self._current_lexeme = []
         self._input_tail = ''
