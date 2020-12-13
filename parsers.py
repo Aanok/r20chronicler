@@ -59,10 +59,9 @@ class JsonSaxParser:
     # TODO: better roll parsing to show details of single dice
     # TODO: inlinerolls (e.g. macros and calculator-like expressions)
 
-    def __init__(self, filepath, playerid, is_gm):
+    def __init__(self, filepath, playerid):
         self._filepath = filepath 
         self._playerid = playerid
-        self._is_gm = is_gm
         self._streamer = JSONStreamer()
         self._streamer.auto_listen(self)
         self._state = SaxState.START
@@ -123,23 +122,19 @@ class JsonSaxParser:
                     )
             elif self._type == PostType.GMROLLRESULT:
                 # same deal...
-                # privacy of GM rolls must be enforced client-side
-                if self._post_playerid == self._playerid or self._is_gm:
-                    roll = loads(self._content)
-                    post = ''.join(
-                            [
-                                self._who,
-                                ' (to GM): ',
-                                self._origRoll,
-                                ' = ',
-                                str(roll['total']),
-                                '\n'
-                            ]
-                        )
-                else:
-                    self._type = PostType.IGNORE
+                roll = loads(self._content)
+                post = ''.join(
+                        [
+                            self._who,
+                            ' (to GM): ',
+                            self._origRoll,
+                            ' = ',
+                            str(roll['total']),
+                            '\n'
+                        ]
+                    )
             elif self._type == PostType.WHISPER:
-                # privacy of whispers must be enforced client-side
+                # whispers must be filtered client-side
                 # note: the target can be a comma-separated list
                 # why not a JSON array? belzeebub's will again for sure
                 if self._post_playerid == self._playerid \
@@ -250,11 +245,16 @@ class ChatParser:
     
     WHITESPACE = ' \n\r\t'
 
+<<<<<<< HEAD
     def __init__(self, filepath, playerid, is_gm):
+        self._filepath = filepath
+=======
+    def __init__(self, filepath, playerid):
+>>>>>>> parent of b4a782c (gmrolls)
         self._parser_state = ChatParserState.LOOKING
         self._current_lexeme = []
         self._input_tail = ''
-        self._json_parser = JsonSaxParser(filepath, playerid, is_gm)
+        self._json_parser = JsonSaxParser(filepath, playerid)
 
 
     def _get_lexemes(self, chunk):
@@ -310,12 +310,19 @@ class ChatParser:
                 else:
                     to_decode = self._input_tail + lexeme
                     b64_stop_pos = len(to_decode) - (len(to_decode) % 4)
-                    try:
-                        self._json_parser.parse(b64decode(to_decode[: b64_stop_pos]).decode())
-                    except Exception as e:
-                        stderr.write("\nERROR while processing chunk\n")
-                        stderr.write(b64decode(to_decode[: b64_stop_pos]).decode())
-                        stderr.write("\n")
-                        print_exc()
-                        exit(1)
-                    self._input_tail = to_decode[b64_stop_pos :]
+                    while True:
+                        try:
+                            self._json_parser.parse(b64decode(to_decode[: b64_stop_pos]).decode())
+                        except Exception as e:
+                            if isinstance(e, UnicodeDecodeError) and e.reason == 'unexpected end of data':
+                                # utf-8 character spans two chunks
+                                b64_stop_pos = e.start - (e.start % 4)
+                            else:
+                                stderr.write("\nERROR while processing " + self._filepath +  ", chunk:\n")
+                                stderr.write(b64decode(to_decode[: b64_stop_pos]).decode(errors="backslashreplace"))
+                                stderr.write("\n")
+                                print_exc()
+                                exit(1)
+                        else:
+                            self._input_tail = to_decode[b64_stop_pos :]
+                            break

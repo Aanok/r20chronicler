@@ -95,7 +95,7 @@ def delete_cookiejar():
     remove('cookiejar')
 
 
-async def _dump_page(campaign_id, filename, pageno, playerid, is_gm):
+async def _dump_page(campaign_id, filename, pageno, playerid):
     global session, pages, done
     response = await session.get(
             'https://app.roll20.net/campaigns/chatarchive/{}/?p={}'.format(campaign_id, pageno),
@@ -104,7 +104,7 @@ async def _dump_page(campaign_id, filename, pageno, playerid, is_gm):
     async with response:
         if response.status != 200:
             raise HTTPError(response.status)
-        parser = ChatParser(filename, playerid, is_gm)
+        parser = ChatParser(filename, playerid)
         async for chunk in response.content.iter_chunked(64 * 1024):
             encoding = response.charset or 'utf-8'
             parser.process(chunk.decode(encoding))
@@ -115,7 +115,6 @@ async def _dump_page(campaign_id, filename, pageno, playerid, is_gm):
 
 async def dump_chatlog(campaign_id, filepath):
     global session, pages, done
-    is_gm = False
     response = await session.get(
             'https://app.roll20.net/campaigns/chatarchive/{}'.format(campaign_id),
             allow_redirects=False
@@ -127,7 +126,6 @@ async def dump_chatlog(campaign_id, filepath):
             raise HTTPError(response.status)
         re_pages = re_compile(b'Page 1/(\d+)</div>')
         re_playerid = re_compile(b'Object\.defineProperty\(window, "currentPlayer", {value: {id: "([^"]+)"}, writable: false }\);')
-        re_isgm = re_compile(b'Object\.defineProperty\(window, "is_gm", { value : true, writable : false }\);')
         buf = b''
         # can't use readline because the line with msgdata is too long
         async for chunk in response.content.iter_any():
@@ -147,9 +145,6 @@ async def dump_chatlog(campaign_id, filepath):
                 match_playerid = re_playerid.search(line)
                 if match_playerid:
                     playerid = match_playerid.group(1).decode(response.charset or 'utf-8')
-                match_isgm = re_isgm.search(line)
-                if match_isgm:
-                    is_gm = True
                 start = end + 1
         del buf
 
@@ -166,7 +161,7 @@ async def dump_chatlog(campaign_id, filepath):
     for page in range(pages, 0, -1):
         tmp_filepath = '{}/{}'.format(tmp_dir, page)
         tmp_filepaths.append(tmp_filepath)
-        tasks.append(_dump_page(campaign_id, tmp_filepath, page, playerid, is_gm))
+        tasks.append(_dump_page(campaign_id, tmp_filepath, page, playerid))
     done = 0
     progress(done, pages)
     await asyncio.gather(*tasks)
