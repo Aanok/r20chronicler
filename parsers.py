@@ -318,7 +318,6 @@ class ChatParser:
                             if isinstance(e, UnicodeDecodeError) and e.reason == 'unexpected end of data':
                                 # utf-8 character spans two chunks
                                 b64_stop_pos = e.start - (e.start % 4)
-#                                 self._json_parser.parse(b64decode(to_decode[: b64_stop_pos]).decode())
                             else:
                                 stderr.write("\nERROR while processing " + self._filepath +  ", chunk:\n")
                                 stderr.write(b64decode(to_decode[: b64_stop_pos]).decode(errors="backslashreplace"))

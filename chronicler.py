@@ -15,7 +15,7 @@ outputdir = 'output'
 
 async def main():
     try:
-        print('r20chronicler build 2020-10-20')
+        print('r20chronicler build 2020-12-13')
         config.load()
         await roll20.new_session(
             config.options['user']['email'],
